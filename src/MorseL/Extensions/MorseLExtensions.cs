@@ -16,9 +16,9 @@ namespace MorseL.Extensions
 {
     public static class MorseLExtensions
     {
-        public static IMorseLBuilder AddMorseL(this IServiceCollection services, IScaleoutBackPlane scaleoutBackPlane = null)
+        public static IMorseLBuilder AddMorseL(this IServiceCollection services)
         {
-            services.AddSingleton(scaleoutBackPlane ?? new ScaleoutBackPlane());
+            services.AddSingleton<IBackplane, DefaultBackplane>();
             services.AddSingleton<WebSocketConnectionManager>();
             services.AddSingleton(typeof(HubWebSocketHandler<>), typeof(HubWebSocketHandler<>));
             services.AddScoped(typeof(IHubActivator<,>), typeof(DefaultHubActivator<,>));

@@ -32,14 +32,14 @@ namespace MorseL
         private readonly IServiceScopeFactory _serviceScopeFactory;
         private readonly ILogger<HubWebSocketHandler<THub, TClient>> _logger;
         private readonly IAuthorizeData[] _authorizeData;
-        private readonly IScaleoutBackPlane _scaleoutBackPlane;
+        private readonly IBackplane _backplane;
 
         public HubWebSocketHandler(IServiceProvider services, ILoggerFactory loggerFactory) : base(services, loggerFactory)
         {
             _services = services;
             _logger = loggerFactory.CreateLogger<HubWebSocketHandler<THub, TClient>>();
             _serviceScopeFactory = services.GetRequiredService<IServiceScopeFactory>();
-            _scaleoutBackPlane = services.GetService<IScaleoutBackPlane>();
+            _backplane = services.GetService<IBackplane>();
 
             _authorizeData = typeof(THub).GetTypeInfo().GetCustomAttributes().OfType<IAuthorizeData>().ToArray();
             DiscoverHubMethods();
@@ -64,7 +64,12 @@ namespace MorseL
                     }
                 }
 
-                await _scaleoutBackPlane.Register(connection);
+                await _backplane.OnClientConnectedAsync(connection.Id);
+                _backplane.OnMessage += async (connectionId, message) => {
+                    if (connectionId.Equals(connection.Id)) {
+                        await connection.Channel.SendMessageAsync(message);
+                    }
+                };
             }
             catch (Exception ex)
             {
@@ -99,15 +104,16 @@ namespace MorseL
             }
             finally
             {
-                await _scaleoutBackPlane.UnRegister(connection);
+                await _backplane.OnClientDisconnectedAsync(connection.Id);
             }
         }
 
         private void InitializeHub(THub hub, Connection connection)
         {
             hub.Clients = ActivatorUtilities.CreateInstance<ClientsDispatcher>(_services);
+            hub.Client = hub.Clients.Client(connection.Id);
             hub.Context = new HubCallerContext(connection);
-            hub.Groups = new GroupsManager();
+            hub.Groups = ActivatorUtilities.CreateInstance<GroupsDispatcher>(_services);
         }
 
         private void DiscoverHubMethods()
