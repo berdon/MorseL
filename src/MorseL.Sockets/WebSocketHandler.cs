@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Net.WebSockets;
+using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
@@ -8,8 +9,20 @@ using Microsoft.Extensions.Logging;
 using MorseL.Common;
 using MorseL.Sockets.Middleware;
 
+[assembly: InternalsVisibleTo("MorseL.Scaleout.Tests")]
+[assembly: InternalsVisibleTo("MorseL.Scaleout.Redis.Tests")]
 namespace MorseL.Sockets
 {
+    /// <summary>
+    /// <para>
+    /// Handles managing a websockets lifetime and providing an abstraction around
+    /// connected, disconnected, and message received states.
+    /// </para>
+    /// <para>
+    /// TODO : Abstract Handler from WebSocket so HubXxxHandlers don't need to know
+    /// about underlying transportation medium.
+    /// </para>
+    /// </summary>
     public abstract class WebSocketHandler
     {
         private readonly IServiceProvider _services;
@@ -23,7 +36,7 @@ namespace MorseL.Sockets
             _logger = loggerFactory.CreateLogger<WebSocketHandler>();
         }
 
-        public async Task<Connection> OnConnected(WebSocket socket, HttpContext context)
+        internal async Task<Connection> OnConnected(WebSocket socket, HttpContext context)
         {
             // Create the websocket channel / connection
             var channel = ActivatorUtilities.CreateInstance<WebSocketChannel>(_services, socket);
@@ -56,7 +69,7 @@ namespace MorseL.Sockets
             return connection;
         }
 
-        public async Task OnDisconnected(WebSocket socket, Exception exception)
+        internal async Task OnDisconnected(WebSocket socket, Exception exception)
         {
             var connection = WebSocketConnectionManager.GetConnection(socket);
 
